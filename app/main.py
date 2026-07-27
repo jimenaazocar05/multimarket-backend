@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, products, customers, suppliers, sales, inventory, receivables, payables
+from app.routers import auth, products, customers, suppliers, sales, inventory, receivables, payables, dashboard, reports
 
 app = FastAPI(title="Multimarket API")
 
@@ -22,6 +22,8 @@ app.include_router(sales.router)
 app.include_router(inventory.router)
 app.include_router(receivables.router)
 app.include_router(payables.router)
+app.include_router(dashboard.router)
+app.include_router(reports.router)
 
 
 # --- Health check ---

@@ -5,6 +5,7 @@ from uuid import UUID
 from app.db import get_db
 from app.auth.dependencies import get_current_user
 from app.models.product import Product
+from app.models.inventory_movement import InventoryMovement
 from app.schemas.product import ProductCreate, ProductUpdate, ProductOut
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -32,13 +33,26 @@ def get_product(product_id: UUID, db: Session = Depends(get_db), user: dict = De
 
 @router.post("", response_model=ProductOut, status_code=201)
 def create_product(payload: ProductCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    product = Product(**payload.model_dump())
-    db.add(product)
-    db.commit()
-    db.refresh(product)
-    # Nota: si stock > 0, el movimiento inicial en inventory_movements
-    # se implementa en la Etapa 4 junto con el resto de inventario.
-    return product
+    try:
+        product = Product(**payload.model_dump())
+        db.add(product)
+        db.flush()  # asigna product.id sin cerrar la transacción
+
+        if payload.stock > 0:
+            db.add(InventoryMovement(
+                product_id=product.id,
+                movement_type="initial",
+                quantity_change=payload.stock,
+                reference_id=None,
+                notes="Stock inicial al crear el producto",
+            ))
+
+        db.commit()
+        db.refresh(product)
+        return product
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.put("/{product_id}", response_model=ProductOut)

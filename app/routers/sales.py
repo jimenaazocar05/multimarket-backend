@@ -3,18 +3,18 @@ from sqlalchemy.orm import Session
 from datetime import date as date_type
 from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.models.product import Product
 from app.models.inventory_movement import InventoryMovement
+from app.models.payment import Payment
 from app.schemas.sale import SaleCreate, SaleOut, SaleItemOut
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
 
 @router.post("", response_model=SaleOut, status_code=201)
-def create_sale(payload: SaleCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
     if payload.status == "credit" and payload.customer_id is None:
         raise HTTPException(422, "customer_id es obligatorio para ventas a crédito")
 
@@ -74,7 +74,7 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db), user: dict =
             sale_items.append(sale_item)
 
             product = products_by_id[str(item.product_id)]
-            product.stock = product.stock - item.quantity
+            product.stock = float(product.stock) - item.quantity
 
             db.add(InventoryMovement(
                 product_id=item.product_id,
@@ -102,7 +102,6 @@ def list_sales(
     to: date_type | None = Query(default=None),
     status: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
 ):
     query = db.query(Sale)
     if from_:
@@ -114,8 +113,23 @@ def list_sales(
     return query.order_by(Sale.sale_date.desc()).all()
 
 
+@router.get("/{sale_id}", response_model=SaleOut)
+def get_sale(sale_id: UUID, db: Session = Depends(get_db)):
+    sale = db.query(Sale).filter(Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(404, "Venta no encontrada")
+    sale.items = db.query(SaleItem).filter(SaleItem.sale_id == sale_id).all()
+    sale.payments = (
+        db.query(Payment)
+        .filter(Payment.sale_id == sale_id, Payment.kind == "receivable")
+        .order_by(Payment.payment_date.asc(), Payment.created_at.asc())
+        .all()
+    )
+    return sale
+
+
 @router.get("/{sale_id}/items", response_model=list[SaleItemOut])
-def sale_items(sale_id: UUID, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def sale_items(sale_id: UUID, db: Session = Depends(get_db)):
     sale = db.query(Sale).filter(Sale.id == sale_id).first()
     if not sale:
         raise HTTPException(404, "Venta no encontrada")

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import date
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.sale import Sale
 from app.models.payment import Payment
 from app.schemas.finance import ReceivablePay, ReceivableOut
@@ -11,7 +10,7 @@ router = APIRouter(prefix="/api/receivables", tags=["receivables"])
 
 
 @router.get("", response_model=list[ReceivableOut])
-def list_receivables(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def list_receivables(db: Session = Depends(get_db)):
     sales = (
         db.query(Sale)
         .filter(Sale.status == "credit")
@@ -36,7 +35,7 @@ def list_receivables(db: Session = Depends(get_db), user: dict = Depends(get_cur
 
 
 @router.post("/pay", response_model=ReceivableOut)
-def pay_receivable(payload: ReceivablePay, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def pay_receivable(payload: ReceivablePay, db: Session = Depends(get_db)):
     # Bloqueo de fila — dos abonos simultáneos a la misma venta
     # no deben pisarse ni sobrepasar el saldo juntos.
     sale = (
@@ -54,7 +53,7 @@ def pay_receivable(payload: ReceivablePay, db: Session = Depends(get_db), user: 
 
     try:
         db.add(Payment(kind="receivable", sale_id=sale.id, amount=payload.amount))
-        sale.amount_paid = sale.amount_paid + payload.amount
+        sale.amount_paid = float(sale.amount_paid) + payload.amount
         if sale.amount_paid >= sale.total:
             sale.status = "paid"
         db.commit()

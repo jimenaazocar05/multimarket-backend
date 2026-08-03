@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, timedelta
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.models.product import Product
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("", response_model=DashboardOut)
-def get_dashboard(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def get_dashboard(db: Session = Depends(get_db)):
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)

@@ -9,7 +9,6 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    code = Column(String, nullable=True)
     name = Column(String, nullable=False)
     cost = Column(Numeric(12, 2), nullable=False, default=0)
     price = Column(Numeric(12, 2), nullable=False, default=0)

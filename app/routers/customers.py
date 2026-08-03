@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.customer import Customer
 from app.models.sale import Sale
 from app.schemas.customer import CustomerCreate, CustomerOut
@@ -28,7 +27,7 @@ def _agg_subquery(db: Session):
 
 
 @router.get("", response_model=list[CustomerOut])
-def list_customers(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def list_customers(db: Session = Depends(get_db)):
     agg = _agg_subquery(db)
     rows = (
         db.query(Customer, agg.c.total, agg.c.owed, agg.c.count)
@@ -48,7 +47,7 @@ def list_customers(db: Session = Depends(get_db), user: dict = Depends(get_curre
 
 
 @router.get("/{customer_id}/sales")
-def customer_sales(customer_id: UUID, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def customer_sales(customer_id: UUID, db: Session = Depends(get_db)):
     return (
         db.query(Sale)
         .filter(Sale.customer_id == customer_id)
@@ -58,7 +57,7 @@ def customer_sales(customer_id: UUID, db: Session = Depends(get_db), user: dict 
 
 
 @router.post("", status_code=201)
-def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):
     customer = Customer(**payload.model_dump())
     db.add(customer)
     db.commit()
@@ -67,7 +66,7 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db), user
 
 
 @router.put("/{customer_id}")
-def update_customer(customer_id: UUID, payload: CustomerCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def update_customer(customer_id: UUID, payload: CustomerCreate, db: Session = Depends(get_db)):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(404, "Cliente no encontrado")

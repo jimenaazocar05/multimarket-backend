@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.schemas.dashboard import TopProduct, ReportsOut
@@ -16,7 +15,6 @@ def get_reports(
     from_: date = Query(..., alias="from"),
     to: date = Query(...),
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
 ):
     totals = (
         db.query(

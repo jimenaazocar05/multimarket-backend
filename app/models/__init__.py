@@ -7,5 +7,9 @@ from app.models.sale_item import SaleItem
 from app.models.payable import Payable
 from app.models.payment import Payment
 from app.models.inventory_movement import InventoryMovement
+from app.models.purchase_item import PurchaseItem
 
-__all__ = ["Product", "Customer", "Supplier", "Sale", "SaleItem", "Payable", "Payment", "InventoryMovement"]
+__all__ = [
+    "Product", "Customer", "Supplier", "Sale", "SaleItem", "Payable", "Payment",
+    "InventoryMovement", "PurchaseItem",
+]

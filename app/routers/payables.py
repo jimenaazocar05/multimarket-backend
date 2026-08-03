@@ -1,16 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import date
+from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.payable import Payable
 from app.models.payment import Payment
-from app.schemas.finance import PayableCreate, PayablePay, PayableOut
+from app.models.product import Product
+from app.models.purchase_item import PurchaseItem
+from app.models.inventory_movement import InventoryMovement
+from app.schemas.finance import PayableCreate, PayablePay, PayableOut, PurchaseCreate
 
 router = APIRouter(prefix="/api/payables", tags=["payables"])
 
 
-def _to_out(p: Payable) -> PayableOut:
+def _to_out(
+    p: Payable,
+    payments: list[Payment] | None = None,
+    items: list[PurchaseItem] | None = None,
+) -> PayableOut:
     today = date.today()
     balance = float(p.amount - p.amount_paid)
     return PayableOut(
@@ -19,17 +26,39 @@ def _to_out(p: Payable) -> PayableOut:
         balance=balance, due_date=p.due_date, issue_date=p.issue_date,
         days_old=(today - p.issue_date).days,
         overdue=bool(p.due_date and p.due_date < today and balance > 0),
+        payments=payments or [],
+        items=items or [],
     )
 
 
 @router.get("", response_model=list[PayableOut])
-def list_payables(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def list_payables(db: Session = Depends(get_db)):
     payables = db.query(Payable).order_by(Payable.issue_date.desc()).all()
     return [_to_out(p) for p in payables]
 
 
+@router.get("/{payable_id}", response_model=PayableOut)
+def get_payable(payable_id: UUID, db: Session = Depends(get_db)):
+    payable = db.query(Payable).filter(Payable.id == payable_id).first()
+    if not payable:
+        raise HTTPException(404, "Cuenta por pagar no encontrada")
+    payments = (
+        db.query(Payment)
+        .filter(Payment.payable_id == payable_id, Payment.kind == "payable")
+        .order_by(Payment.payment_date.asc(), Payment.created_at.asc())
+        .all()
+    )
+    items = (
+        db.query(PurchaseItem)
+        .filter(PurchaseItem.payable_id == payable_id)
+        .order_by(PurchaseItem.created_at.asc())
+        .all()
+    )
+    return _to_out(payable, payments, items)
+
+
 @router.post("", response_model=PayableOut, status_code=201)
-def create_payable(payload: PayableCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_payable(payload: PayableCreate, db: Session = Depends(get_db)):
     payable = Payable(**payload.model_dump())
     db.add(payable)
     db.commit()
@@ -37,8 +66,75 @@ def create_payable(payload: PayableCreate, db: Session = Depends(get_db), user: 
     return _to_out(payable)
 
 
+@router.post("/purchase", response_model=PayableOut, status_code=201)
+def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
+    # Bloquear los productos ANTES de escribir nada, mismo motivo que en
+    # create_sale: evita que una compra y otra operación sobre el mismo
+    # producto se pisen entre sí.
+    products_by_id = {}
+    for item in payload.items:
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .with_for_update()
+            .first()
+        )
+        if not product:
+            raise HTTPException(404, f"Producto {item.product_id} no encontrado")
+        products_by_id[str(item.product_id)] = product
+
+    total = sum(i.quantity * i.unit_cost for i in payload.items)
+
+    try:
+        payable = Payable(
+            supplier_id=payload.supplier_id,
+            supplier_name=payload.supplier_name,
+            concept=payload.concept,
+            amount=total,
+            amount_paid=0,
+            due_date=payload.due_date,
+            notes=payload.notes,
+        )
+        db.add(payable)
+        db.flush()  # asigna payable.id sin cerrar la transacción
+
+        purchase_items = []
+        for item in payload.items:
+            subtotal = item.quantity * item.unit_cost
+            purchase_item = PurchaseItem(
+                payable_id=payable.id,
+                product_id=item.product_id,
+                product_name=item.product_name,
+                quantity=item.quantity,
+                unit_cost=item.unit_cost,
+                subtotal=subtotal,
+            )
+            db.add(purchase_item)
+            purchase_items.append(purchase_item)
+
+            product = products_by_id[str(item.product_id)]
+            product.stock = float(product.stock) + item.quantity
+            product.cost = item.unit_cost  # el costo se actualiza al de la última compra
+
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                movement_type="purchase",
+                quantity_change=item.quantity,
+                reference_id=payable.id,
+                notes=f"Compra #{payable.id}",
+            ))
+
+        db.commit()
+        db.refresh(payable)
+        return _to_out(payable, items=purchase_items)
+
+    except Exception:
+        db.rollback()
+        raise
+
+
 @router.post("/pay", response_model=PayableOut)
-def pay_payable(payload: PayablePay, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def pay_payable(payload: PayablePay, db: Session = Depends(get_db)):
     payable = (
         db.query(Payable)
         .filter(Payable.id == payload.payable_id)
@@ -54,7 +150,7 @@ def pay_payable(payload: PayablePay, db: Session = Depends(get_db), user: dict =
 
     try:
         db.add(Payment(kind="payable", payable_id=payable.id, amount=payload.amount))
-        payable.amount_paid = payable.amount_paid + payload.amount
+        payable.amount_paid = float(payable.amount_paid) + payload.amount
         db.commit()
         db.refresh(payable)
     except Exception:

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 
 
 class SaleItemIn(BaseModel):
@@ -40,6 +40,16 @@ class SaleItemOut(BaseModel):
         from_attributes = True
 
 
+class PaymentOut(BaseModel):
+    id: UUID
+    amount: float
+    payment_date: date
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class SaleOut(BaseModel):
     id: UUID
     sale_date: datetime
@@ -51,6 +61,7 @@ class SaleOut(BaseModel):
     amount_paid: float
     notes: Optional[str]
     items: list[SaleItemOut] = []
+    payments: list[PaymentOut] = []
 
     class Config:
         from_attributes = True

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.product import Product
 from app.models.inventory_movement import InventoryMovement
 from app.schemas.inventory import StockAdjustment, InventoryMovementOut
@@ -12,7 +11,7 @@ router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 
 @router.post("/adjust", response_model=ProductOut)
-def adjust_stock(payload: StockAdjustment, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def adjust_stock(payload: StockAdjustment, db: Session = Depends(get_db)):
     # Bloqueo de fila — mismo motivo que en Etapa 3: evita que un ajuste
     # y una venta simultánea sobre el mismo producto se pisen entre sí.
     product = (
@@ -52,7 +51,6 @@ def adjust_stock(payload: StockAdjustment, db: Session = Depends(get_db), user: 
 def list_movements(
     product_id: UUID = Query(...),
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
 ):
     return (
         db.query(InventoryMovement)

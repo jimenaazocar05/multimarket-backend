@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import asc
 from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.product import Product
 from app.models.inventory_movement import InventoryMovement
 from app.schemas.product import ProductCreate, ProductUpdate, ProductOut
@@ -15,7 +14,6 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 def list_products(
     active: bool | None = Query(default=None),
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
 ):
     query = db.query(Product)
     if active is not None:
@@ -24,7 +22,7 @@ def list_products(
 
 
 @router.get("/{product_id}", response_model=ProductOut)
-def get_product(product_id: UUID, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def get_product(product_id: UUID, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(404, "Producto no encontrado")
@@ -32,7 +30,7 @@ def get_product(product_id: UUID, db: Session = Depends(get_db), user: dict = De
 
 
 @router.post("", response_model=ProductOut, status_code=201)
-def create_product(payload: ProductCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     try:
         product = Product(**payload.model_dump())
         db.add(product)
@@ -56,7 +54,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), user: 
 
 
 @router.put("/{product_id}", response_model=ProductOut)
-def update_product(product_id: UUID, payload: ProductUpdate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def update_product(product_id: UUID, payload: ProductUpdate, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(404, "Producto no encontrado")

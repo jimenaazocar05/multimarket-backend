@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from uuid import UUID
 from app.db import get_db
-from app.auth.dependencies import get_current_user
 from app.models.supplier import Supplier
 from app.models.payable import Payable
 from app.schemas.supplier import SupplierCreate
@@ -25,7 +24,7 @@ def _agg_subquery(db: Session):
 
 
 @router.get("")
-def list_suppliers(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def list_suppliers(db: Session = Depends(get_db)):
     agg = _agg_subquery(db)
     rows = (
         db.query(Supplier, agg.c.total, agg.c.owed, agg.c.count)
@@ -43,7 +42,7 @@ def list_suppliers(db: Session = Depends(get_db), user: dict = Depends(get_curre
 
 
 @router.post("", status_code=201)
-def create_supplier(payload: SupplierCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_supplier(payload: SupplierCreate, db: Session = Depends(get_db)):
     supplier = Supplier(**payload.model_dump())
     db.add(supplier)
     db.commit()
@@ -52,7 +51,7 @@ def create_supplier(payload: SupplierCreate, db: Session = Depends(get_db), user
 
 
 @router.put("/{supplier_id}")
-def update_supplier(supplier_id: UUID, payload: SupplierCreate, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def update_supplier(supplier_id: UUID, payload: SupplierCreate, db: Session = Depends(get_db)):
     supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not supplier:
         raise HTTPException(404, "Proveedor no encontrado")

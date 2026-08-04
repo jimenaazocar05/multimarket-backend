@@ -16,6 +16,7 @@ class SaleCreate(BaseModel):
     customer_id: Optional[UUID] = None
     customer_name: Optional[str] = None
     status: Literal["paid", "credit"]
+    sale_date: Optional[datetime] = None
     notes: Optional[str] = None
     items: list[SaleItemIn]
 

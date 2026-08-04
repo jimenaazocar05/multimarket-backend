@@ -86,7 +86,7 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
     total = sum(i.quantity * i.unit_cost for i in payload.items)
 
     try:
-        payable = Payable(
+        payable_kwargs = dict(
             supplier_id=payload.supplier_id,
             supplier_name=payload.supplier_name,
             concept=payload.concept,
@@ -95,6 +95,9 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
             due_date=None if payload.is_cash else payload.due_date,
             notes=payload.notes,
         )
+        if payload.issue_date:
+            payable_kwargs["issue_date"] = payload.issue_date
+        payable = Payable(**payable_kwargs)
         db.add(payable)
         db.flush()  # asigna payable.id sin cerrar la transacción
 
@@ -103,6 +106,7 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
                 kind="payable",
                 payable_id=payable.id,
                 amount=total,
+                payment_date=payload.issue_date or date.today(),
             ))
 
         purchase_items = []

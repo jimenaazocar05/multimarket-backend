@@ -56,6 +56,7 @@ class PurchaseCreate(BaseModel):
     supplier_name: Optional[str] = None
     concept: str = "Compra de mercancía"
     due_date: Optional[date] = None
+    issue_date: Optional[date] = None
     notes: Optional[str] = None
     items: list[PurchaseItemIn]
     is_cash: bool = False

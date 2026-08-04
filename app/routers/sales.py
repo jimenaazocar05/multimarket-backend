@@ -45,7 +45,7 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
 
     try:
         # 3. Insertar la venta
-        sale = Sale(
+        sale_kwargs = dict(
             customer_id=payload.customer_id,
             customer_name=payload.customer_name,
             total=total,
@@ -54,6 +54,9 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
             amount_paid=amount_paid,
             notes=payload.notes,
         )
+        if payload.sale_date:
+            sale_kwargs["sale_date"] = payload.sale_date
+        sale = Sale(**sale_kwargs)
         db.add(sale)
         db.flush()  # asigna sale.id sin cerrar la transacción
 

@@ -91,12 +91,19 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
             supplier_name=payload.supplier_name,
             concept=payload.concept,
             amount=total,
-            amount_paid=0,
-            due_date=payload.due_date,
+            amount_paid=total if payload.is_cash else 0,
+            due_date=None if payload.is_cash else payload.due_date,
             notes=payload.notes,
         )
         db.add(payable)
         db.flush()  # asigna payable.id sin cerrar la transacción
+
+        if payload.is_cash and total > 0:
+            db.add(Payment(
+                kind="payable",
+                payable_id=payable.id,
+                amount=total,
+            ))
 
         purchase_items = []
         for item in payload.items:

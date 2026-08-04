@@ -58,6 +58,7 @@ class PurchaseCreate(BaseModel):
     due_date: Optional[date] = None
     notes: Optional[str] = None
     items: list[PurchaseItemIn]
+    is_cash: bool = False
 
     @field_validator("items")
     @classmethod

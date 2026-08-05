@@ -14,7 +14,7 @@ from app.db import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, UserMe
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Almacén en memoria: token → user_id. Suficiente para un sistema interno.
 _token_store: dict[str, str] = {}

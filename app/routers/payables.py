@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
 from datetime import date
 from uuid import UUID
 from app.db import get_db
@@ -24,7 +24,7 @@ def _to_out(
         id=p.id, supplier_id=p.supplier_id, supplier_name=p.supplier_name,
         concept=p.concept, amount=float(p.amount), amount_paid=float(p.amount_paid),
         balance=balance, due_date=p.due_date, issue_date=p.issue_date,
-        days_old=(today - p.issue_date).days,
+        days_old=(today - p.issue_date).days if p.issue_date else 0,
         overdue=bool(p.due_date and p.due_date < today and balance > 0),
         payments=payments or [],
         items=items or [],
@@ -32,9 +32,30 @@ def _to_out(
 
 
 @router.get("", response_model=list[PayableOut])
-def list_payables(db: Session = Depends(get_db)):
-    payables = db.query(Payable).order_by(Payable.issue_date.desc()).all()
-    return [_to_out(p) for p in payables]
+def list_payables(
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = Query(default=None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Payable)
+    if from_:
+        query = query.filter(Payable.issue_date >= from_)
+    if to:
+        query = query.filter(Payable.issue_date <= to)
+    
+    payables = query.order_by(Payable.issue_date.desc()).all()
+    
+    # Pre-cargar items manualmente (similar a como lo hace get_payable)
+    if payables:
+        payable_ids = [p.id for p in payables]
+        all_items = db.query(PurchaseItem).filter(PurchaseItem.payable_id.in_(payable_ids)).all()
+        items_by_payable = {}
+        for item in all_items:
+            items_by_payable.setdefault(item.payable_id, []).append(item)
+            
+        return [_to_out(p, items=items_by_payable.get(p.id, [])) for p in payables]
+    
+    return []
 
 
 @router.get("/{payable_id}", response_model=PayableOut)

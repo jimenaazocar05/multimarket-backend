@@ -8,8 +8,9 @@ from app.models.payable import Payable
 from app.models.payment import Payment
 from app.models.inventory_movement import InventoryMovement
 from app.models.purchase_item import PurchaseItem
+from app.models.user import User
 
 __all__ = [
     "Product", "Customer", "Supplier", "Sale", "SaleItem", "Payable", "Payment",
-    "InventoryMovement", "PurchaseItem",
+    "InventoryMovement", "PurchaseItem", "User",
 ]

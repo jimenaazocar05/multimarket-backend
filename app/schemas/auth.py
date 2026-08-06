@@ -10,6 +10,7 @@ class UserMe(BaseModel):
     id: str
     name: str
     username: str
+    role: str
 
     class Config:
         from_attributes = True

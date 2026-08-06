@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import cast, Date
 from datetime import date as date_type
 from uuid import UUID
 from app.db import get_db
@@ -108,9 +109,9 @@ def list_sales(
 ):
     query = db.query(Sale)
     if from_:
-        query = query.filter(Sale.sale_date >= from_)
+        query = query.filter(cast(Sale.sale_date, Date) >= from_)
     if to:
-        query = query.filter(Sale.sale_date <= to)
+        query = query.filter(cast(Sale.sale_date, Date) <= to)
     if status:
         query = query.filter(Sale.status == status)
     return query.order_by(Sale.sale_date.desc()).all()

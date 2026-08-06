@@ -8,17 +8,13 @@ Si el usuario ya existe, lo omite.
 """
 import sys
 import os
-import hashlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db import SessionLocal, Base, engine
 from app.models import *  # noqa: F401, F403 — registra todos los modelos
 from app.models.user import User
-
-
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+from app.security import hash_password
 
 
 def create_admin():
@@ -36,6 +32,7 @@ def create_admin():
             name="Administrador",
             username="admin",
             password_hash=hash_password("admin123"),
+            role="admin",
             active=True,
         )
         db.add(admin)
